@@ -1,32 +1,710 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Hello, World!</title>
-	</head>
-	<body>
-		<h1 id="heading"></h1>
-		<p>This page comes from a static asset stored at `public/index.html` as configured in `wrangler.jsonc`.</p>
-		<button id="button" type="button">Fetch a random UUID</button>
-		<output id="random" for="button"></output>
-		<script>
-			fetch('/message')
-				.then((resp) => resp.text())
-				.then((text) => {
-					const h1 = document.getElementById('heading');
-					h1.textContent = text;
-				});
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Analysis - TwelveLabs</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Video Analysis</h1>
+            <p>Transform your videos into searchable, intelligent content with AI-powered analysis</p>
+            
+            <!-- New onboarding section -->
+            <div class="onboarding-section">
+                <div class="onboarding-content">
+                    <h3>🎯 What can you discover?</h3>
+                    <p>Upload any video and instantly search through its content using natural language. Find specific moments, objects, people, actions, or conversations - all powered by advanced AI that understands both visual and audio content.</p>
+                    <div class="feature-highlights">
+                        <div class="feature-item">
+                            <span class="feature-icon">🔍</span>
+                            <span>Search by description</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">👁️</span>
+                            <span>Visual content analysis</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎵</span>
+                            <span>Audio & speech recognition</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="nav-buttons">
+                <button id="showAllBtn" class="nav-btn active">Overview</button>
+                <button id="showUploadBtn" class="nav-btn">Upload Video</button>
+                <button id="showGalleryBtn" class="nav-btn">Video Gallery</button>
+            </div>
+        </div>
 
-			const button = document.getElementById("button");
-			button.addEventListener("click", () => {
-				fetch('/random')
-					.then((resp) => resp.text())
-					.then((text) => {
-						const random = document.getElementById('random');
-						random.textContent = text;
-					});
-			});
-		</script>
-	</body>
+        <form id="videoForm">
+            <div class="form-group">
+                <label for="videoUrl">Video URL</label>
+                <input 
+                    type="url" 
+                    id="videoUrl" 
+                    name="videoUrl" 
+                    placeholder="https://your-video-url.com"
+                    required
+                >
+                <div class="help-text">
+                    <span class="help-icon">💡</span>
+                    <span>Paste any video URL to start analyzing. We'll process your video and make it searchable in minutes.</span>
+                </div>
+            </div>
+            <div class="submit-btn-container">
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <span class="btn-text">Process Video</span>
+                    <span class="spinner hidden" id="spinner"></span>
+                </button>
+            </div>
+        </form>
+
+        <div id="status" class="status hidden"></div>
+        <div id="videoInfo" class="video-info hidden"></div>
+
+        <div class="video-viewer-section" id="videoViewerSection" style="display: none;">
+            <div class="video-viewer-header">
+                <h2>Video Player</h2>
+                <button id="backToGalleryFromViewerBtn" class="nav-btn">← Back to Gallery</button>
+            </div>
+            <div class="video-player-container">
+                <video id="videoPlayer" controls>
+                    <p>Your browser does not support the video tag.</p>
+                </video>
+            </div>
+            <div class="video-info-display" id="videoInfoDisplay"></div>
+            <div class="search-section-in-viewer">
+                <h3>Search in this video</h3>
+                <form class="search-form-in-viewer" id="searchFormInViewer">
+                    <div class="search-inputs">
+                        <input 
+                            type="text" 
+                            id="searchQueryInViewer" 
+                            placeholder="Enter search terms..."
+                            required
+                        >
+                        <button type="submit">Search</button>
+                    </div>
+                    <div class="search-options">
+                        <div class="search-option-group">
+                            <label>Search Options:</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="searchOptionsInViewer" value="visual" checked> Visual</label>
+                                <label><input type="checkbox" name="searchOptionsInViewer" value="audio" checked> Audio</label>
+                                
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div id="searchResultsInViewer" class="search-results"></div>
+            </div>
+        </div>
+
+        <div class="video-gallery-section" id="videoGallerySection">
+            <h2>Processed Video Gallery</h2>
+            <div id="videoGallery" class="video-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentVideoId = null;
+
+        document.getElementById('videoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const videoUrl = document.getElementById('videoUrl').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.querySelector('.btn-text');
+            const spinner = document.getElementById('spinner');
+            const status = document.getElementById('status');
+            const videoInfo = document.getElementById('videoInfo');
+            const searchSection = document.getElementById('searchSection');
+            const videoGallerySection = document.getElementById('videoGallerySection');
+
+            // Show loading state
+            submitBtn.disabled = true;
+            btnText.textContent = 'Processing...';
+            spinner.classList.remove('hidden');
+            status.className = 'status loading';
+            status.textContent = 'Creating video processing task...';
+            status.classList.remove('hidden');
+            videoInfo.classList.add('hidden');
+
+            try {
+                // Step 1: Start the video indexing task
+                const response = await fetch('/api/index-video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ videoUrl })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to start video processing');
+                }
+
+                console.log('Task started:', data);
+                
+                // Step 2: Update status to show task is processing
+                status.textContent = 'Video processing in progress...';
+                btnText.textContent = 'Processing...';
+                
+                // Step 3: Poll for task status
+                const taskId = data.taskId;
+                let taskComplete = false;
+                let attempts = 0;
+                const maxAttempts = 60; // 5 minutes max (5 second intervals)
+                
+                while (!taskComplete && attempts < maxAttempts) {
+                    attempts++;
+                    
+                    try {
+                        const statusResponse = await fetch('/api/task-status', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ taskId })
+                        });
+
+                        const statusData = await statusResponse.json();
+
+                        if (!statusResponse.ok) {
+                            throw new Error(statusData.error || 'Failed to get task status');
+                        }
+
+                        console.log('Task status update:', statusData);
+                        
+                        // Update status message
+                        if (statusData.status === 'ready') {
+                            status.className = 'status success';
+                            status.textContent = 'Video processing completed successfully! Your video is now searchable.';
+                            taskComplete = true;
+                            
+                            // Store video ID for search
+                            currentVideoId = statusData.videoId;
+                            
+                            // Show video info
+                            videoInfo.innerHTML = `
+                                <h3>Video Information</h3>
+                                <p><strong>Video ID:</strong> ${statusData.videoId}</p>
+                                <p><strong>Status:</strong> ${statusData.status}</p>
+                                <p><strong>Duration:</strong> ${statusData.duration ? (statusData.duration >= 60 ? `${Math.floor(statusData.duration / 60)}m ${statusData.duration % 60}s` : `${statusData.duration}s`) : 'N/A'}</p>
+                                <p><strong>Created:</strong> ${statusData.createdAt ? new Date(statusData.createdAt).toLocaleString() : 'N/A'}</p>
+                            `;
+                            videoInfo.classList.remove('hidden');
+                            
+
+                            
+                        } else if (statusData.status === 'failed') {
+                            status.className = 'status error';
+                            status.textContent = `Video processing failed: ${statusData.error}`;
+                            taskComplete = true;
+                            
+                        } else {
+                            // Still processing
+                            status.textContent = `Video processing in progress... (Status: ${statusData.status})`;
+                            btnText.textContent = `Processing... (${statusData.status})`;
+                        }
+                        
+                    } catch (statusError) {
+                        console.error('Status check error:', statusError);
+                        status.textContent = `Checking status... (Attempt ${attempts}/${maxAttempts})`;
+                    }
+                    
+                    // Wait 5 seconds before next check
+                    if (!taskComplete) {
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                    }
+                }
+                
+                if (!taskComplete) {
+                    status.className = 'status error';
+                    status.textContent = 'Video processing timed out. Please check the status manually.';
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                status.className = 'status error';
+                status.textContent = `Error: ${error.message}`;
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                btnText.textContent = 'Process Video';
+                spinner.classList.add('hidden');
+            }
+        });
+
+
+
+        document.getElementById('searchFormInViewer').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const searchQuery = document.getElementById('searchQueryInViewer').value;
+            const searchResults = document.getElementById('searchResultsInViewer');
+            
+            if (!currentVideoId) {
+                alert('No video selected');
+                return;
+            }
+
+            // Get search options
+            const searchOptions = Array.from(document.querySelectorAll('input[name="searchOptionsInViewer"]:checked'))
+                .map(cb => cb.value);
+
+            if (searchOptions.length === 0) {
+                alert('Please select at least one search option');
+                return;
+            }
+
+            searchResults.innerHTML = '<p>Searching...</p>';
+
+            try {
+                const response = await fetch('/api/search-video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        videoId: currentVideoId,
+                        query: searchQuery,
+                        searchOptions,
+                        groupBy: 'clip'
+                    })
+                });
+
+                const data = await response.json();
+				console.log(data);
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Search failed');
+                }
+
+                if (data.results && data.results.length > 0) {
+                    searchResults.innerHTML = data.results.map(result => `
+                        <div class="search-result">
+                            <h4>Match found at ${formatTime(result.start)} - ${formatTime(result.end)}</h4>
+                            <p><strong>Score:</strong> ${result.score?.toFixed(2) || 'N/A'}</p>
+                            <p><strong>Confidence:</strong> ${(result.confidence).toString().charAt(0).toUpperCase() + (result.confidence).toString().slice(1)}</p>
+                            ${result.thumbnailUrl ? `<img src="${result.thumbnailUrl}" alt="Thumbnail" style="max-width: 200px; margin-top: 5px;">` : ''}
+                            ${result.transcription ? `<p><strong>Text:</strong> "${result.transcription}"</p>` : ''}
+                            <button onclick="seekToTime(${result.start})" class="seek-btn">Go to ${formatTime(result.start)}</button>
+                        </div>
+                    `).join('');
+                } else {
+                    searchResults.innerHTML = '<p>No results found for your search query.</p>';
+                }
+
+            } catch (error) {
+                console.error('Search error:', error);
+                searchResults.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        });
+
+        // Navigation functionality
+        document.getElementById('showAllBtn').addEventListener('click', () => {
+            showSection('all');
+        });
+
+        document.getElementById('showUploadBtn').addEventListener('click', () => {
+            showSection('upload');
+        });
+
+        document.getElementById('showGalleryBtn').addEventListener('click', () => {
+            showSection('gallery');
+        });
+
+
+
+        document.getElementById('backToGalleryFromViewerBtn').addEventListener('click', () => {
+            showSection('gallery');
+        });
+
+        // Global variable to store HLS instance
+        let currentHlsInstance = null;
+
+        function showSection(section) {
+            const allBtn = document.getElementById('showAllBtn');
+            const uploadBtn = document.getElementById('showUploadBtn');
+            const galleryBtn = document.getElementById('showGalleryBtn');
+            const videoForm = document.getElementById('videoForm');
+            const videoGallerySection = document.getElementById('videoGallerySection');
+            const videoInfo = document.getElementById('videoInfo');
+            const videoViewerSection = document.getElementById('videoViewerSection');
+
+            // Reset all button states
+            allBtn.classList.remove('active');
+            uploadBtn.classList.remove('active');
+            galleryBtn.classList.remove('active');
+
+            // Pause video when navigating away from viewer section
+            if (section !== 'viewer') {
+                pauseVideo();
+            }
+
+            if (section === 'all') {
+                allBtn.classList.add('active');
+                videoForm.style.display = 'block';
+                videoGallerySection.style.display = 'block';
+                videoViewerSection.style.display = 'none';
+                videoInfo.classList.add('hidden');
+                loadVideoGallery(); // Refresh gallery when switching to it
+            } else if (section === 'upload') {
+                uploadBtn.classList.add('active');
+                videoForm.style.display = 'block';
+                videoGallerySection.style.display = 'none';
+                videoViewerSection.style.display = 'none';
+                videoInfo.classList.add('hidden');
+            } else if (section === 'gallery') {
+                galleryBtn.classList.add('active');
+                videoForm.style.display = 'none';
+                videoGallerySection.style.display = 'block';
+                videoViewerSection.style.display = 'none';
+                videoInfo.classList.add('hidden');
+                loadVideoGallery(); // Refresh gallery when switching to it
+            } else if (section === 'viewer') {
+                videoForm.style.display = 'none';
+                videoGallerySection.style.display = 'none';
+                videoViewerSection.style.display = 'block';
+                videoInfo.classList.add('hidden');
+            }
+        }
+
+        // Function to pause video and handle HLS cleanup
+        function pauseVideo() {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer && !videoPlayer.paused) {
+                videoPlayer.pause();
+                console.log('Video paused due to navigation away from viewer section');
+            }
+        }
+
+        // Function to completely clean up video resources
+        function cleanupVideoResources() {
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            // Pause the video
+            if (videoPlayer && !videoPlayer.paused) {
+                videoPlayer.pause();
+            }
+            
+            // Clean up HLS instance
+            if (currentHlsInstance) {
+                currentHlsInstance.destroy();
+                currentHlsInstance = null;
+                console.log('HLS instance cleaned up');
+            }
+            
+            // Reset video source to free memory
+            if (videoPlayer) {
+                videoPlayer.src = '';
+                videoPlayer.load();
+            }
+        }
+
+        // Page Visibility API to pause video when tab becomes hidden
+        document.addEventListener('visibilitychange', () => {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (document.hidden && videoPlayer && !videoPlayer.paused) {
+                videoPlayer.pause();
+                console.log('Video paused due to page visibility change');
+            }
+        });
+
+        // Clean up resources when page is unloaded
+        window.addEventListener('beforeunload', () => {
+            cleanupVideoResources();
+        });
+
+        // Intersection Observer to pause video when it goes out of view
+        // This provides an additional safety measure in case navigation logic fails
+        const videoPlayer = document.getElementById('videoPlayer');
+        if (videoPlayer && 'IntersectionObserver' in window) {
+            const videoObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting && !videoPlayer.paused) {
+                        videoPlayer.pause();
+                        console.log('Video paused due to going out of view');
+                    }
+                });
+            }, { threshold: 0.1 }); // Pause when less than 10% visible
+            
+            videoObserver.observe(videoPlayer);
+        }
+
+        // Load video gallery on page load and show "all" section by default
+        window.addEventListener('load', async () => {
+            await loadVideoGallery();
+            // Initialize with "all" section showing both upload and gallery
+            showSection('all');
+        });
+
+
+
+        async function loadVideoGallery() {
+            const videoGallery = document.getElementById('videoGallery');
+            videoGallery.innerHTML = '<div class="loading-spinner"><div class="spinner"></div>Loading videos...</div>';
+            
+            try {
+                const response = await fetch('/api/list-videos');
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load videos');
+                }
+                
+                displayVideoGallery(data.videos);
+            } catch (error) {
+                console.error('Error loading video gallery:', error);
+                videoGallery.innerHTML = `<div class="empty-state"><h3>Error</h3><p>${error.message}</p></div>`;
+            }
+        }
+
+        function displayVideoGallery(videos) {
+            const videoGallery = document.getElementById('videoGallery');
+            
+            if (!videos || videos.length === 0) {
+                videoGallery.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No Videos Found</h3>
+                        <p>No videos have been processed yet. Upload a video to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            videoGallery.innerHTML = videos.map(video => {
+                const duration = video.systemMetadata?.duration ? 
+                    formatDuration(video.systemMetadata.duration) : 'N/A';
+                const filename = video.systemMetadata?.filename || 'Untitled Video';
+                const statusClass = video.status === 'ready' ? 'status-ready' : 
+                                  video.status === 'processing' ? 'status-processing' : 'status-failed';
+                
+                return `
+                    <div class="video-card" onclick="selectVideo('${video.id}')">
+                        <div class="video-thumbnail">
+                            <img src="${video.thumbnailUrls[0]}" alt="Video thumbnail" onerror="this.style.display='none'">
+                            <span class="video-duration">
+                                <span class="duration-icon">⏱️</span>
+                                ${duration}
+                            </span>
+                        </div>
+                        <div class="video-info">
+                            <h4 class="video-title">${filename}</h4>
+                            <p class="video-meta">Created: ${video.createdAt ? new Date(video.createdAt).toLocaleString() : 'N/A'}</p>
+                            ${video.systemMetadata ? `
+                                <p class="video-meta">Size: ${formatFileSize(video.systemMetadata.size)}</p>
+                                <p class="video-meta">Resolution: ${video.systemMetadata.width}x${video.systemMetadata.height}</p>
+                            ` : ''}
+                            <div class="video-actions">
+                                <button class="action-btn primary" onclick="event.stopPropagation(); selectVideo('${video.id}')">
+                                    <span class="action-icon">🔍</span>
+                                    Search Video
+                                </button>
+                                <button class="action-btn secondary" onclick="event.stopPropagation(); toggleDetails('${video.id}')">
+                                    <span class="action-icon">ℹ️</span>
+                                    Details
+                                </button>
+                            </div>
+                            <div class="video-details" id="details-${video.id}" style="display: none;">
+                                <div class="details-content">
+                                    <p class="detail-item"><strong>Video ID:</strong> ${video.id}</p>
+                                    <p class="detail-item"><strong>Index ID:</strong> ${video.indexId}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectVideo(videoId) {
+            currentVideoId = videoId;
+            showSection('viewer'); // Switch to viewer section
+            loadVideoDetails(videoId);
+        }
+
+        async function loadVideoDetails(videoId) {
+            const videoPlayer = document.getElementById('videoPlayer');
+            const videoInfoDisplay = document.getElementById('videoInfoDisplay');
+            const searchResultsInViewer = document.getElementById('searchResultsInViewer');
+            
+            // Show loading state
+            videoInfoDisplay.innerHTML = '<p>Loading video details...</p>';
+            searchResultsInViewer.innerHTML = '<p>Enter search terms to find matches in this video.</p>';
+            
+            // Clean up previous HLS instance if it exists
+            if (currentHlsInstance) {
+                currentHlsInstance.destroy();
+                currentHlsInstance = null;
+                console.log('Previous HLS instance cleaned up');
+            }
+            
+            try {
+                const response = await fetch(`/api/get-video-details?videoId=${videoId}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load video details');
+                }
+                
+                // Debug: Print the entire API response to see the actual structure
+                console.log('Full API Response:', JSON.stringify(data, null, 2));
+                console.log('HLS object:', data.hls);
+                
+                // Set video source if HLS stream is available
+                if (data.hls && data.hls.videoUrl) {
+                    const videoUrl = data.hls.videoUrl;
+                    
+                    // Check if the URL is an HLS stream (.m3u8)
+                    if (videoUrl.includes('.m3u8')) {
+                        // Check if browser supports HLS natively (Safari)
+                        if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                            // Native HLS support
+                            videoPlayer.src = videoUrl;
+                            videoPlayer.load();
+                        } else if (Hls.isSupported()) {
+                            // Use hls.js for browsers that don't support HLS natively
+                            currentHlsInstance = new Hls();
+                            currentHlsInstance.loadSource(videoUrl);
+                            currentHlsInstance.attachMedia(videoPlayer);
+                            currentHlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                                console.log('HLS manifest loaded successfully');
+                            });
+                            currentHlsInstance.on(Hls.Events.ERROR, function(event, data) {
+                                console.error('HLS error:', data);
+                                if (data.fatal) {
+                                    switch(data.type) {
+                                        case Hls.ErrorTypes.NETWORK_ERROR:
+                                            console.error('Network error, trying to recover...');
+                                            currentHlsInstance.startLoad();
+                                            break;
+                                        case Hls.ErrorTypes.MEDIA_ERROR:
+                                            console.error('Media error, trying to recover...');
+                                            currentHlsInstance.recoverMediaError();
+                                            break;
+                                        default:
+                                            console.error('Fatal error, destroying HLS instance');
+                                            currentHlsInstance.destroy();
+                                            currentHlsInstance = null;
+                                            break;
+                                    }
+                                }
+                            });
+                        } else {
+                            // Fallback for browsers that don't support HLS at all
+                            videoPlayer.innerHTML = '<p>HLS video streaming is not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.</p>';
+                        }
+                    } else {
+                        // Regular video file (not HLS)
+                        videoPlayer.src = videoUrl;
+                        videoPlayer.load();
+                    }
+                } else {
+                    videoPlayer.innerHTML = '<p>Video stream not available</p>';
+                }
+                
+                // Display video information
+                const duration = data.systemMetadata?.duration ? 
+                    formatDuration(data.systemMetadata.duration) : 'N/A';
+                const filename = data.systemMetadata?.filename || 'Untitled Video';
+                const size = data.systemMetadata?.size ? 
+                    formatFileSize(data.systemMetadata.size) : 'N/A';
+                const resolution = data.systemMetadata?.width && data.systemMetadata?.height ? 
+                    `${data.systemMetadata.width}x${data.systemMetadata.height}` : 'N/A';
+                
+                videoInfoDisplay.innerHTML = `
+                    <h3>Video Information</h3>
+                    <p><strong>Title:</strong> ${filename}</p>
+                    <p><strong>Video ID:</strong> ${data.videoId}</p>
+                    <p><strong>Index ID:</strong> ${data.indexId}</p>
+                    <p><strong>Duration:</strong> ${duration}</p>
+                    <p><strong>File Size:</strong> ${size}</p>
+                    <p><strong>Resolution:</strong> ${resolution}</p>
+                    <p><strong>Created:</strong> ${data.createdAt ? new Date(data.createdAt).toLocaleString() : 'N/A'}</p>
+                `;
+                
+            } catch (error) {
+                console.error('Error loading video details:', error);
+                videoInfoDisplay.innerHTML = `<p>Error loading video details: ${error.message}</p>`;
+            }
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return 'N/A';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return 'N/A';
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatTime(seconds) {
+            if (seconds === null || seconds === undefined) return 'N/A';
+            
+            // Round to nearest second
+            const roundedSeconds = Math.round(seconds);
+            
+            if (roundedSeconds < 60) {
+                return `${roundedSeconds}s`;
+            } else {
+                const minutes = Math.floor(roundedSeconds / 60);
+                const remainingSeconds = roundedSeconds % 60;
+                return `${minutes}m ${remainingSeconds}s`;
+            }
+        }
+
+        function seekToTime(seconds) {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer) {
+                videoPlayer.currentTime = seconds;
+                videoPlayer.play();
+                // Scroll to the video player so user can see the video
+                videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function toggleDetails(videoId) {
+            const detailsElement = document.getElementById(`details-${videoId}`);
+            if (detailsElement) {
+                const isVisible = detailsElement.style.display !== 'none';
+                detailsElement.style.display = isVisible ? 'none' : 'block';
+                
+                // Update button text
+                const button = event.target.closest('.action-btn');
+                if (button) {
+                    const icon = button.querySelector('.action-icon');
+                    if (isVisible) {
+                        icon.textContent = 'ℹ️';
+                        button.innerHTML = '<span class="action-icon">ℹ️</span>Details';
+                    } else {
+                        icon.textContent = '▼';
+                        button.innerHTML = '<span class="action-icon">▼</span>Hide';
+                    }
+                }
+            }
+        }
+
+        // Video pause functionality:
+        // - Automatically pauses video when navigating away from viewer section
+        // - Pauses video when page/tab becomes hidden (Page Visibility API)
+        // - Properly manages HLS.js instances to prevent memory leaks
+        // - Cleans up resources when page is unloaded
+    </script>
+</body>
 </html>
