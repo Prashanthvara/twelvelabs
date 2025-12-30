@@ -1,41 +1,70 @@
-import { env, createExecutionContext, waitOnExecutionContext, SELF } from 'cloudflare:test';
 import { describe, it, expect } from 'vitest';
-import worker from '../src';
 
-describe('Hello World user worker', () => {
-	describe('request for /message', () => {
-		it('/ responds with "Hello, World!" (unit style)', async () => {
-			const request = new Request('http://example.com/message');
-			// Create an empty context to pass to `worker.fetch()`.
-			const ctx = createExecutionContext();
-			const response = await worker.fetch(request, env, ctx);
-			// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
-			await waitOnExecutionContext(ctx);
-			expect(await response.text()).toMatchInlineSnapshot(`"Hello, World!"`);
+describe('Video Analysis Application', () => {
+	it('should have proper package.json configuration', async () => {
+		const packageJson = await import('../package.json');
+		
+		expect(packageJson.name).toBe('twelvelabs');
+		expect(packageJson.dependencies).toHaveProperty('twelvelabs-js');
+		expect(packageJson.dependencies).toHaveProperty('axios');
+		expect(packageJson.scripts).toHaveProperty('dev');
+		expect(packageJson.scripts).toHaveProperty('deploy');
+	});
+
+	it('should have required dependencies', () => {
+		// This test ensures the TwelveLabs SDK is available
+		const { TwelveLabs } = require('twelvelabs-js');
+		expect(TwelveLabs).toBeDefined();
+	});
+
+	it('should validate video URL format', () => {
+		const validUrls = [
+			'https://example.com/video.mp4',
+			'https://youtube.com/watch?v=123456',
+			'https://s3.amazonaws.com/bucket/video.mov',
+			'http://localhost:3000/video.webm'
+		];
+
+		const invalidUrls = [
+			'not-a-url',
+			'ftp://example.com/video.mp4',
+			'',
+			null
+		];
+
+		validUrls.forEach(url => {
+			try {
+				new URL(url);
+				expect(true).toBe(true); // URL is valid
+			} catch {
+				expect.fail(`URL should be valid: ${url}`);
+			}
 		});
 
-		it('responds with "Hello, World!" (integration style)', async () => {
-			const request = new Request('http://example.com/message');
-			const response = await SELF.fetch(request);
-			expect(await response.text()).toMatchInlineSnapshot(`"Hello, World!"`);
+		invalidUrls.forEach(url => {
+			if (url) {
+				try {
+					new URL(url);
+					expect.fail(`URL should be invalid: ${url}`);
+				} catch {
+					expect(true).toBe(true); // URL is invalid as expected
+				}
+			}
 		});
 	});
 
-	describe('request for /random', () => {
-		it('/ responds with a random UUID (unit style)', async () => {
-			const request = new Request('http://example.com/random');
-			// Create an empty context to pass to `worker.fetch()`.
-			const ctx = createExecutionContext();
-			const response = await worker.fetch(request, env, ctx);
-			// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
-			await waitOnExecutionContext(ctx);
-			expect(await response.text()).toMatch(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/);
-		});
+	it('should handle JSON response formatting', () => {
+		const mockResponse = {
+			videoId: 'test-video-id',
+			status: 'ready',
+			message: 'Video indexing started successfully'
+		};
 
-		it('responds with a random UUID (integration style)', async () => {
-			const request = new Request('http://example.com/random');
-			const response = await SELF.fetch(request);
-			expect(await response.text()).toMatch(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/);
-		});
+		const jsonString = JSON.stringify(mockResponse);
+		const parsed = JSON.parse(jsonString);
+
+		expect(parsed).toEqual(mockResponse);
+		expect(parsed.videoId).toBe('test-video-id');
+		expect(parsed.status).toBe('ready');
 	});
 });

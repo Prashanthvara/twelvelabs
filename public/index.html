@@ -1,32 +1,87 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Hello, World!</title>
-	</head>
-	<body>
-		<h1 id="heading"></h1>
-		<p>This page comes from a static asset stored at `public/index.html` as configured in `wrangler.jsonc`.</p>
-		<button id="button" type="button">Fetch a random UUID</button>
-		<output id="random" for="button"></output>
-		<script>
-			fetch('/message')
-				.then((resp) => resp.text())
-				.then((text) => {
-					const h1 = document.getElementById('heading');
-					h1.textContent = text;
-				});
 
-			const button = document.getElementById("button");
-			button.addEventListener("click", () => {
-				fetch('/random')
-					.then((resp) => resp.text())
-					.then((text) => {
-						const random = document.getElementById('random');
-						random.textContent = text;
-					});
-			});
-		</script>
-	</body>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Analysis App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css?v=final-v1" />
+</head>
+
+<body>
+    <div class="app-container">
+
+        <!-- Hero Section (Moved out of main for full width) -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <h2>Unlock the Power of Video Analysis</h2>
+                <p>Search, analyze, and extract insights from your video content with AI technology powered by
+                    TwelveLabs.</p>
+            </div>
+        </section>
+
+            <!-- Video Grid / Sidebar -->
+        <section class="sidebar" id="video-library-pane">
+            <div class="sidebar-content">
+                <div class="sidebar-header">
+                    <h2>Video Library</h2>
+                    <button id="index-video-btn" class="icon-btn"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="video-list" class="video-list" role="listbox" aria-label="Select a video to analyze">
+                    <!-- Video items will be injected here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Area -->
+        <main class="main-content" id="main-content-pane">
+
+            <!-- Back Button (Mobile) -->
+            <button id="back-to-videos" class="back-button" style="display: none;">
+                <i class="fas fa-arrow-left"></i> Back to Videos
+            </button>
+
+            <!-- Search Section (moved to top) -->
+            <section class="search-section" aria-label="Search videos">
+                <div class="search-header">
+                    <h2>Search</h2>
+                </div>
+                <div class="search-controls">
+                    <input type="text" id="search-input" placeholder="Search in this video..." aria-label="Search in this video" />
+                    <button id="search-btn" class="primary-btn">Search</button>
+                </div>
+            </section>
+
+            <!-- Video Player -->
+            <div id="video-player-container" aria-label="Video Player Region" role="region">
+                <!-- Video player will be embedded here -->
+            </div>
+
+            <!-- Video Details -->
+            <div id="video-details-container" aria-live="polite">
+                <!-- Video metadata will be shown here -->
+            </div>
+
+            <!-- Search Results -->
+            <div id="search-results-container" aria-label="Search results" aria-live="polite">
+                <!-- Search results will be displayed here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Indexing Modal -->
+    <div id="indexing-modal" class="modal" role="dialog" aria-labelledby="indexing-modal-title">
+        <div class="modal-content">
+            <span class="close-btn" aria-label="Close dialog">&times;</span>
+            <h3 id="indexing-modal-title">Index a New Video</h3>
+            <input type="text" id="video-url-input" placeholder="Enter video URL" />
+            <button id="submit-indexing-btn" class="primary-btn">Index Video</button>
+            <div id="indexing-status"></div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+
 </html>

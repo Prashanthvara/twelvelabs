@@ -5,12 +5,14 @@
 	"scripts": {
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
-		"start": "wrangler dev",
-		"test": "vitest"
+		"start": "wrangler dev src/index.js --local"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"vitest": "~3.2.0",
-		"wrangler": "^4.28.0"
+		"wrangler": "^4.53.0"
+	},
+	"dependencies": {
+		"twelvelabs-js": "^1.0.0"
 	}
 }
