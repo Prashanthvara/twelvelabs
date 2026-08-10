@@ -1,80 +1,59 @@
-# Video Analysis with TwelveLabs
+# Video Search with TwelveLabs
 
-A modern web application that allows users to upload video URLs for AI-powered analysis and search using TwelveLabs API. Built with Cloudflare Workers for serverless deployment.
+[Live demo](https://twelvelabs.pjayav.workers.dev/)
 
-## Features
+Search inside a video with plain English. Paste a video URL, wait for indexing, then ask for "the part where someone explains pricing" and get back the exact clips with timestamps. Built on the TwelveLabs Marengo 2.7 engine and deployed on Cloudflare Workers.
 
-- 🎥 **Video URL Upload**: Submit any video URL for AI analysis
-- 🔍 **AI-Powered Search**: Search through video content using natural language
-- ⚡ **Real-time Processing**: Monitor video indexing status
-- 🎨 **Modern UI**: Beautiful, responsive interface
-- ☁️ **Serverless**: Built on Cloudflare Workers for global performance
+## What it does
 
-## Prerequisites
+- **Indexes video from a URL.** Submit any direct video link or cloud storage URL. The app creates a TwelveLabs index, kicks off the ingestion task, and polls for status until the video is ready to query.
+- **Searches three tracks at once.** Every query runs against the visual, audio, and conversation modalities. You control whether the results are combined with `or` or narrowed with `and`.
+- **Searches one video or the whole library.** `/api/search-video` scopes to a single video, `/api/search-all` runs the same query across every video in the index.
+- **Returns ranked clips, not whole videos.** Each result carries a relevance score, start and end timestamps, a confidence label, a thumbnail, and the transcript segment where available.
+- **Exposes the retrieval knobs.** Confidence threshold, sort order, page size, and grouping by video or by clip are all adjustable per request, so you can see how ranking behavior changes.
 
-- [Node.js](https://nodejs.org/) (v16 or higher)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (Cloudflare Workers CLI)
-- [TwelveLabs API Key](https://twelvelabs.io/) (Sign up for free)
+## Who it's for
 
+Anyone evaluating video understanding APIs who wants to see retrieval quality directly instead of reading a benchmark table. The confidence and grouping controls exist so you can probe where the model is strong and where it degrades.
 
-## Usage
+## Tech stack
 
-### 1. Video Analysis
-1. Enter a video URL in the input field
-2. Click "Process Video"
-3. Wait for the indexing process to complete
-4. View video information and status
+- Cloudflare Workers (single Worker serving both API and static frontend)
+- TwelveLabs Marengo 2.7 for indexing and search
+- Vanilla JS frontend, no build step
+- Vitest for tests
 
-### 2. Video Search
-1. After a video is indexed, the search section will appear
-2. Enter your search query (e.g., "person walking", "car driving", "speech about technology")
-3. Click "Search" to find relevant moments in the video
-4. View results with timestamps and confidence scores
+## Local development
 
-### Environment Variables
-
-- `TWELVELABS_API_KEY`: Your TwelveLabs API key (required)
-
-## Supported Video Formats
-
-The application supports various video formats and sources:
-- MP4, MOV, AVI, WebM
-- Direct video file URLs
-- Cloud storage URLs (AWS S3, Google Cloud Storage, etc.)
-
-## TwelveLabs Features Used
-
-- **Marengo 2.5 Engine**: Advanced video understanding
-- **Multi-modal Analysis**: Visual, audio, and text analysis
-- **Natural Language Search**: Search videos using everyday language
-- **Real-time Indexing**: Fast video processing and analysis
-
-## Development
-
-### Project Structure
-```
-twelvelabs/
-├── public/
-│   └── index.html          # Frontend application
-├── src/
-│   └── index.js           # Cloudflare Worker backend
-├── package.json           # Dependencies and scripts
-├── wrangler.jsonc         # Cloudflare Workers configuration
-└── README.md             # This file
+```bash
+npm install
+npm run dev
 ```
 
-### Available Scripts
-- `npm run dev`: Start development server
-- `npm run deploy`: Deploy to Cloudflare Workers
-- `npm test`: Run tests
+Set your API key as a Worker secret:
 
+```bash
+npx wrangler secret put TWELVELABS_API_KEY
+```
 
-### Getting Help
+For local runs, put the same key in `.dev.vars`:
 
-- [TwelveLabs Documentation](https://docs.twelvelabs.io/)
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
-- [Wrangler CLI Documentation](https://developers.cloudflare.com/workers/wrangler/)
+```
+TWELVELABS_API_KEY=<your-twelvelabs-key>
+```
+
+Get a key at [twelvelabs.io](https://twelvelabs.io/).
+
+## Deployment
+
+```bash
+npm run deploy
+```
+
+## Supported inputs
+
+Direct video file URLs (MP4, MOV, AVI, WebM) and cloud storage URLs from S3, GCS, and equivalent providers.
 
 ## License
 
-MIT License - feel free to use this project for your own applications.
+MIT
