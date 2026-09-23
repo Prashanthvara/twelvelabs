@@ -165,3 +165,8 @@ dist
 .env*
 !.env.example
 .wrangler/
+
+# Local agent tooling and notes, not project content
+.agents/
+.claude/
+FEEDBACK.md

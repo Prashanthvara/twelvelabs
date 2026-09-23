@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(open http://localhost:8787)",
-      "Bash(python3:*)"
-    ]
-  }
-}
