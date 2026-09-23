@@ -2,8 +2,8 @@
 // The twelvelabs-js SDK has Node.js dependencies that don't work in Workers
 
 const TWELVELABS_API_BASE = 'https://api.twelvelabs.io/v1.3';
-const INDEX_NAME = 'Demo';
-const MODEL_NAME = 'marengo2.7';
+const INDEX_NAME = 'Test';
+const MODEL_NAME = 'marengo3.0';
 const MODEL_OPTIONS = ['visual', 'audio'];
 
 // Helper: Make API request to TwelveLabs
