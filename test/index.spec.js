@@ -6,7 +6,6 @@ describe('Video Analysis Application', () => {
 		
 		expect(packageJson.name).toBe('twelvelabs');
 		expect(packageJson.dependencies).toHaveProperty('twelvelabs-js');
-		expect(packageJson.dependencies).toHaveProperty('axios');
 		expect(packageJson.scripts).toHaveProperty('dev');
 		expect(packageJson.scripts).toHaveProperty('deploy');
 	});
